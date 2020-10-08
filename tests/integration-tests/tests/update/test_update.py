@@ -45,10 +45,6 @@ def test_update_sit(
     init_config_file = pcluster_config_reader()
     cluster = clusters_factory(init_config_file)
 
-    # Update cluster with the same configuration, command should not result any error even if not using force update
-    cluster.config_file = str(init_config_file)
-    cluster.update(force=False)
-
     # Command executors
     command_executor = RemoteCommandExecutor(cluster)
     scheduler_commands = get_scheduler_commands(scheduler, command_executor)
@@ -136,6 +132,37 @@ def test_update_sit(
         "postinstall",
         updated_config.get("cluster default", "post_install_args"),
     )
+
+    # Setting disable_hyperthreading to true in config file
+    initial_config = configparser.ConfigParser()
+    initial_config.read(init_config_file)
+    initial_config.set("cluster default", "disable_hyperthreading", "true")
+    updated_config.set("cluster default", "disable_hyperthreading", "true")
+
+    # Create a cluster with new initial config file
+    init_config_file = pcluster_config_reader(
+        config_file=_save_config_file(updated_config, test_datadir, "pcluster.config.ini"), bucket=bucket_name
+    )
+    cluster = clusters_factory(init_config_file)
+
+    # Update cluster with new configuration changing the compute instance type
+    new_compute_instance_type = "c5.9xlarge"
+    updated_config.set("cluster default", "compute_instance_type", new_compute_instance_type)
+    updated_config_file = pcluster_config_reader(
+        config_file=_save_config_file(updated_config, test_datadir, "pcluster.config.update.ini"), bucket=bucket_name
+    )
+    cluster.config_file = str(updated_config_file)
+    cluster.update()
+
+    # Command executors
+    command_executor = RemoteCommandExecutor(cluster)
+    scheduler_commands = get_scheduler_commands(scheduler, command_executor)
+
+    # Get new slots_per_instance
+    slots_per_instance = fetch_instance_slots(region, new_compute_instance_type) // 2
+
+    # Check cfn_scheduler_slots changed by compute instance type changing
+    _check_cfn_scheduler_slots(scheduler_commands, slots_per_instance)
 
 
 @pytest.mark.dimensions("eu-central-1", "c5.xlarge", "*", "slurm")
@@ -403,6 +430,24 @@ def _check_script(command_executor, scheduler_commands, host, script_name, scrip
     _retrieve_script_output(scheduler_commands, script_name, host)
     result = command_executor.run_remote_command("cat /shared/script_results/{1}_{0}_out.txt".format(script_name, host))
     assert_that(result.stdout).matches(r"{0}-{1}".format(script_name, script_arg))
+
+
+def _check_cfn_scheduler_slots(scheduler_commands, slots_per_node):
+    # submit a job to check cfn_scheduler_slot has been updated
+    result = scheduler_commands.submit_command("sleep 1", nodes=1, slots=slots_per_node)
+    job_id = scheduler_commands.assert_job_submitted(result.stdout)
+    scheduler_commands.wait_job_completed(job_id)
+    assert_that(scheduler_commands.compute_nodes_count()).is_equal_to(1)
+    scheduler_commands.assert_job_succeeded(job_id)
+
+
+def _save_config_file(config, test_datadir, file_name):
+    try:
+        with open(str(test_datadir / file_name), "w") as configfile:
+            config.write(configfile)
+        return file_name
+    except IOError as err:
+        logging.info("I/O error: {0}".format(err))
 
 
 def _retrieve_extra_json(scheduler_commands, host):

@@ -34,6 +34,7 @@ class AWSApi:
         # pylint: disable=C0103
         self.s3 = S3Client()
         self.kms = KmsClient()
+        self.cfn = CfnClient()
         self.imagebuilder = ImageBuilderClient()
 
     @staticmethod

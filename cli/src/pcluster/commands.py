@@ -30,6 +30,8 @@ from botocore.exceptions import ClientError
 from tabulate import tabulate
 
 import pcluster.utils as utils
+from common.pcluster_api import PclusterApi
+from common.utils import load_yaml_dict
 from pcluster.cli_commands.compute_fleet_status_manager import ComputeFleetStatusManager
 from pcluster.config.hit_converter import HitConverter
 from pcluster.config.pcluster_config import PclusterConfig
@@ -592,4 +594,16 @@ def _get_default_template_url(region):
         "aws-parallelcluster-{VERSION}.cfn.json".format(
             REGION=region, SUFFIX=".cn" if region.startswith("cn") else "", VERSION=utils.get_installed_version()
         )
+    )
+
+
+def build_image(args):
+    """Build AWS ParallelCluster AMI."""
+    LOGGER.info("Building AWS ParallelCluster AMI. This could take a while...")
+    LOGGER.debug("CLI args: %s", str(args))
+    PclusterApi().build_image(
+        imagebuilder_config=load_yaml_dict(args.config_file),
+        image_name=args.image_name,
+        region=utils.get_region(),
+        disable_rollback=False,
     )

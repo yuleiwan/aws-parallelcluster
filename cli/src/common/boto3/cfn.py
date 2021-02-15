@@ -19,12 +19,21 @@ class CfnClient(Boto3Client):
         super().__init__("cloudformation")
 
     @AWSExceptionHandler.handle_client_exception
-    def create_stack(self, stack_name, template_url, disable_rollback, tags):
+    def create_stack(self, stack_name, disable_rollback, tags, template_url=None, template_body=None):
         """Create CFN stack by using the given template."""
-        return self._client.create_stack(
-            StackName=stack_name,
-            TemplateURL=template_url,
-            Capabilities=["CAPABILITY_IAM"],
-            DisableRollback=disable_rollback,
-            Tags=tags,
-        )
+        if template_url:
+            return self._client.create_stack(
+                StackName=stack_name,
+                TemplateUrl=template_url,
+                Capabilities=["CAPABILITY_IAM"],
+                DisableRollback=disable_rollback,
+                Tags=tags,
+            )
+        else:
+            return self._client.create_stack(
+                StackName=stack_name,
+                TemplateBody=template_body,
+                Capabilities=["CAPABILITY_IAM"],
+                DisableRollback=disable_rollback,
+                Tags=tags,
+            )

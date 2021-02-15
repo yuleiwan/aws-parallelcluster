@@ -12,16 +12,24 @@
 # This module contains all the classes representing the Resources objects.
 # These objects are obtained from the configuration file through a conversion based on the Schema classes.
 #
-
+import json
+import logging
 from typing import List
 
 from common.imagebuilder_utils import ROOT_VOLUME_TYPE
-from pcluster import utils
+import yaml
+
+from common.aws.aws_api import AWSApi
+from common.boto3.common import AWSClientError
+from common.imagebuilder_utils import get_stack_name
 from pcluster.models.common import BaseDevSettings, BaseTag, Resource
+from pcluster.utils import get_region, stack_exists, get_installed_version, get_stack
 from pcluster.validators.ebs_validators import EBSVolumeKmsKeyIdValidator, EbsVolumeTypeSizeValidator
 from pcluster.validators.ec2_validators import InstanceTypeBaseAMICompatibleValidator
 from pcluster.validators.imagebuilder_validators import AMIVolumeSizeValidator
 from pcluster.validators.kms_validators import KmsKeyValidator
+
+LOGGER = logging.getLogger(__name__)
 
 # ---------------------- Image ---------------------- #
 
@@ -57,15 +65,7 @@ class Image(Resource):
         self.name = Resource.init_param(name)
         self.tags = tags
         self.root_volume = root_volume
-        self._set_default()
         # TODO: add validator
-
-    def _set_default(self):
-        if self.tags is None:
-            self.tags = []
-        default_tag = BaseTag("pcluster_version", utils.get_installed_version())
-        default_tag.implied = True
-        self.tags.append(default_tag)
 
 
 # ---------------------- Build ---------------------- #
@@ -134,6 +134,11 @@ class ImagebuilderDevSettings(BaseDevSettings):
 
 # ---------------------- ImageBuilder ---------------------- #
 
+class ImageBuilderActionError(Exception):
+    """Represent an error during the execution of an action on the imagebuilder."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
 
 class ImageBuilder(Resource):
     """Represent the configuration of an ImageBuilder."""
@@ -145,9 +150,28 @@ class ImageBuilder(Resource):
         dev_settings: ImagebuilderDevSettings = None,
     ):
         super().__init__()
+        self.name = None
+        self.__region = None
         self.image = image
         self.build = build
         self.dev_settings = dev_settings
+        self.imagebuild_template = None
+
+    @property
+    def region(self):
+        """Retrieve region from environment if not set."""
+        if not self.__region:
+            self.__region = get_region()
+        return self.__region
+
+    @region.setter
+    def region(self, region):
+        self.__region = region
+
+    @property
+    def stack_name(self):
+        """Return stack name corresponding to the imagebuilder."""
+        return get_stack_name(self.name)
 
     def _validate(self):
         self._execute_validator(
@@ -160,3 +184,37 @@ class ImageBuilder(Resource):
             volume_size=self.image.root_volume.size,
             image=self.build.parent_image,
         )
+
+    def create(self, name: str, region: str, disable_rollback: bool = False):
+        """Create the CFN Stack and associate resources."""
+        stack = None
+        try:
+            self.name = name
+            self.region = region
+
+            if stack_exists(self.stack_name):
+                raise ImageBuilderActionError("ImageBuilder stack name {self.name} already exists.")
+
+            LOGGER.info("Creating stack named: %s", self.stack_name)
+            # Add tags info
+            tags = self.image.tags or []
+            tags.append(BaseTag("Version", get_installed_version()))
+            tags = [tag.dump_tag() for tag in tags]
+
+            LOGGER.info("Creating stack named: %s", self.stack_name)
+            stack = AWSApi.instance().cfn.create_stack(
+                stack_name=self.stack_name,
+                template_body=json.dumps(self.imagebuild_template),
+                disable_rollback=disable_rollback,
+                tags=tags
+            )
+            LOGGER.debug("StackId: %s", stack.get("StackId"))
+
+            stack_status = get_stack(self.stack_name).get("StackStatus")
+            LOGGER.info("Status: %s", stack_status)
+
+        except (AWSClientError, Exception) as e:
+            LOGGER.critical(e)
+            raise ImageBuilderActionError(e)
+
+

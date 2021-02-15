@@ -17,6 +17,7 @@ ROOT_VOLUME_TYPE = "gp2"
 PCLUSTER_RESERVED_VOLUME_SIZE = 15
 InstanceRole = Enum("InstanceRole", ("ROLE", "INSTANCE_PROFILE"))
 
+IMAGEBUILDER_STACK_PREFIX = "parallelcluster-imagebuilder-"
 
 def get_ami_id(parent_image):
     """Get ami id from parent image, parent image could be image id or image arn."""
@@ -36,3 +37,9 @@ def get_resources_directory():
     """Get imagebuilder resources directory."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(current_dir, "..", "pcluster", "resources")
+
+
+def get_stack_name(name):
+    """Get imagebuilder cfn stack name"""
+    return IMAGEBUILDER_STACK_PREFIX+name
+

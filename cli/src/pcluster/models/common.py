@@ -173,6 +173,10 @@ class BaseTag(Resource):
         self.key = Resource.init_param(key)
         self.value = Resource.init_param(value)
 
+    def dump_tag(self):
+        """Convert tag to dict."""
+        return {"Key": self.key, "Value": self.value}
+
 
 class Cookbook(Resource):
     """Represent the chef cookbook configuration."""

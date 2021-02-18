@@ -10,6 +10,8 @@
 # limitations under the License.
 import json
 import os
+import shutil
+from tempfile import mkdtemp
 from urllib.request import urlopen
 
 import yaml
@@ -43,3 +45,33 @@ def validate_json_format(data):
     except ValueError:
         return False
     return True
+
+
+class TemporaryFolder:
+    """
+    Create a temporary folder.
+
+    Singleton pattern is implemented to keep one temporary folder in global scope.
+    """
+
+    _instance = None
+
+    def __init__(self):
+        self.folder = mkdtemp()
+
+    @staticmethod
+    def instance():
+        """Get temporary folder instance."""
+        if not TemporaryFolder._instance:
+            TemporaryFolder._instance = TemporaryFolder()
+        return TemporaryFolder._instance
+
+    @staticmethod
+    def delete_folder():
+        """Delete temporary folder."""
+        try:
+            if TemporaryFolder._instance:
+                shutil.rmtree(TemporaryFolder._instance.folder)
+                TemporaryFolder._instance = None
+        except OSError as e:
+            print("Error: %s : %s" % (TemporaryFolder._instance.folder, e.strerror))

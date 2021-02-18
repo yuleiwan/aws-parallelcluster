@@ -17,8 +17,8 @@ CLASS_DICT = {
     "build": Build,
     "dev_settings": ImagebuilderDevSettings,
     "root_volume": Volume,
-    "tag": BaseTag,
-    "component": Component,
+    "tags": BaseTag,
+    "components": Component,
     "cookbook": Cookbook,
 }
 
@@ -42,18 +42,14 @@ def imagebuilder_factory(resource):
     object_dict = {}
     for r in resource.keys():
         value = resource.get(r)
+
         if isinstance(value, list):
             temp = []
-            for v in value:
-                if isinstance(v, dict):
-                    for dict_key, dict_value in v.items():
-                        kwargs = imagebuilder_factory(dict_value)
-                        cls = CLASS_DICT.get(dict_key)
-                        temp.append(cls(**kwargs))
-                else:
-                    temp.extend(v)
+            cls = CLASS_DICT.get(r)
+            for kwargs in value:
+                temp.append(cls(**kwargs))
             object_dict[r] = temp
-        if r in CLASS_DICT:
+        elif r in CLASS_DICT:
             kwargs = imagebuilder_factory(value)
             cls = CLASS_DICT.get(r)
             object_dict[r] = cls(**kwargs)

@@ -12,12 +12,13 @@
 import os
 
 import pytest
+import yaml
 from assertpy import assert_that
 
 from pcluster.templates.cdk_builder import CDKTemplateBuilder
 
 from ..boto3.dummy_boto3 import DummyAWSApi
-from ..models.imagebuilder_dummy_model import dummy_imagebuilder
+from ..models.imagebuilder_dummy_model import dummy_imagebuilder, imagebuilder_factory
 
 
 @pytest.mark.parametrize(
@@ -278,3 +279,200 @@ def _test_parameters(generated_parameters, expected_parameters):
 def _test_resources(generated_resouces, expected_resources):
     for resouce in expected_resources.keys():
         assert_that(resouce in generated_resouces).is_equal_to(True)
+
+
+@pytest.mark.parametrize(
+    "resource, response, expected_instance_role, expected_instance_profile, expected_instance_profile_in_configuration",
+    [
+        (
+            {
+                "imagebuilder": {
+                    "image": {"name": "Pcluster", "description": "Pcluster 3.0 Image"},
+                    "build": {
+                        "parent_image": "ami-0185634c5a8a37250",
+                        "instance_type": "c5.xlarge",
+                    },
+                }
+            },
+            {
+                "Architecture": "x86_64",
+                "BlockDeviceMappings": [
+                    {
+                        "DeviceName": "/dev/xvda",
+                        "Ebs": {
+                            "DeleteOnTermination": True,
+                            "SnapshotId": "snap-0a20b6671bc5e3ead",
+                            "VolumeSize": 50,
+                            "VolumeType": "gp2",
+                            "Encrypted": False,
+                        },
+                    }
+                ],
+            },
+            {
+                "Type": "AWS::IAM::Role",
+                "Properties": {
+                    "AssumeRolePolicyDocument": {
+                        "Statement": {
+                            "Action": "sts:AssumeRole",
+                            "Effect": "Allow",
+                            "Principal": {"Service": "ec2.amazonaws.com"},
+                        },
+                        "Version": "2012-10-17",
+                    },
+                    "ManagedPolicyArns": [
+                        {"Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"},
+                        {"Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/EC2InstanceProfileForImageBuilder"},
+                    ],
+                    "Path": "/executionServiceEC2Role/",
+                },
+                "Metadata": {"Comment": "Role to be used by instance during image build."},
+            },
+            {
+                "Type": "AWS::IAM::InstanceProfile",
+                "Properties": {"Roles": [{"Ref": "InstanceRole"}], "Path": "/executionServiceEC2Role/"},
+            },
+            {"Ref": "InstanceProfile"},
+        ),
+        (
+            {
+                "imagebuilder": {
+                    "image": {"name": "Pcluster", "description": "Pcluster 3.0 Image"},
+                    "build": {
+                        "parent_image": "ami-0185634c5a8a37250",
+                        "instance_type": "c5.xlarge",
+                        "instance_role": "arn:aws:iam::xxxxxxxxxxxx:role/test-InstanceRole",
+                    },
+                }
+            },
+            {
+                "Architecture": "x86_64",
+                "BlockDeviceMappings": [
+                    {
+                        "DeviceName": "/dev/xvda",
+                        "Ebs": {
+                            "DeleteOnTermination": True,
+                            "SnapshotId": "snap-0a20b6671bc5e3ead",
+                            "VolumeSize": 50,
+                            "VolumeType": "gp2",
+                            "Encrypted": False,
+                        },
+                    }
+                ],
+            },
+            None,
+            {
+                "Type": "AWS::IAM::InstanceProfile",
+                "Properties": {
+                    "Roles": [{"Ref": "arn:aws:iam::xxxxxxxxxxxx:role/test-InstanceRole"}],
+                    "Path": "/executionServiceEC2Role/",
+                },
+            },
+            {"Ref": "InstanceProfile"},
+        ),
+        (
+            {
+                "imagebuilder": {
+                    "image": {"name": "Pcluster", "description": "Pcluster 3.0 Image"},
+                    "build": {
+                        "parent_image": "ami-0185634c5a8a37250",
+                        "instance_type": "c5.xlarge",
+                        "instance_role": "arn:aws:iam::xxxxxxxxxxxx:instance-profile/InstanceProfile",
+                    },
+                }
+            },
+            {
+                "Architecture": "x86_64",
+                "BlockDeviceMappings": [
+                    {
+                        "DeviceName": "/dev/xvda",
+                        "Ebs": {
+                            "DeleteOnTermination": True,
+                            "SnapshotId": "snap-0a20b6671bc5e3ead",
+                            "VolumeSize": 50,
+                            "VolumeType": "gp2",
+                            "Encrypted": False,
+                        },
+                    }
+                ],
+            },
+            None,
+            None,
+            {"Ref": "arn:aws:iam::xxxxxxxxxxxx:instance-profile/InstanceProfile"},
+        ),
+    ],
+)
+def test_imagebuilder_instance_role(
+    mocker,
+    resource,
+    response,
+    expected_instance_role,
+    expected_instance_profile,
+    expected_instance_profile_in_configuration,
+):
+    mocker.patch("common.aws.aws_api.AWSApi.instance", return_value=DummyAWSApi())
+    mocker.patch("common.imagebuilder_utils.get_ami_id", return_value="ami-0185634c5a8a37250")
+    mocker.patch(
+        "common.boto3.ec2.Ec2Client.describe_image",
+        return_value=response,
+    )
+    imagebuild = imagebuilder_factory(resource).get("imagebuilder")
+    generated_template = CDKTemplateBuilder().build_ami(imagebuild)
+    assert_that(generated_template.get("Resources").get("InstanceRole")).is_equal_to(expected_instance_role)
+    assert_that(generated_template.get("Resources").get("InstanceProfile")).is_equal_to(expected_instance_profile)
+    assert_that(
+        generated_template.get("Resources")
+        .get("PClusterImageInfrastructureConfiguration")
+        .get("Properties")
+        .get("InstanceProfileName")
+    ).is_equal_to(expected_instance_profile_in_configuration)
+
+
+@pytest.mark.parametrize(
+    "resource, response",
+    [
+        {
+            "imagebuilder": {
+                "image": {"name": "Pcluster", "description": "Pcluster 3.0 Image"},
+                "build": {
+                    "parent_image": "ami-0185634c5a8a37250",
+                    "instance_type": "c5.xlarge",
+                    "components": [
+                        {
+                            "type": "arn",
+                            "value": "arn:aws:imagebuilder:us-east-1:aws:component/apache-tomcat-9-linux/1.0.0",
+                        },
+                        {"type": "yaml", "value": "https://test/mysql_component.yaml"},
+                        {"type": "yaml", "value": "s3://test/keras_component.yaml"},
+                        {"type": "yaml", "value": "file:///Users/yuleiwan/support.yaml"},
+                        {
+                            "type": "bash",
+                            "value": "https://test-slurm.s3.us-east-2.amazonaws.com/post_install_script.sh",
+                        },
+                        {"type": "bash", "value": "s3://test-slurm/post_install_script.sh"},
+                        {"type": "bash", "value": "file:///Users/yuleiwan/build-test-ami.sh"},
+                    ],
+                },
+            }
+        },
+        {
+            "Architecture": "x86_64",
+            "BlockDeviceMappings": [
+                {
+                    "DeviceName": "/dev/xvda",
+                    "Ebs": {
+                        "DeleteOnTermination": True,
+                        "SnapshotId": "snap-0a20b6671bc5e3ead",
+                        "VolumeSize": 50,
+                        "VolumeType": "gp2",
+                        "Encrypted": False,
+                    },
+                }
+            ],
+        },
+    ],
+)
+def test_imagebuilder_custom_components(mocker, resource, response):
+    imagebuild = imagebuilder_factory(resource).get("imagebuilder")
+    generated_template = CDKTemplateBuilder().build_ami(imagebuild)
+    print(yaml.dump(generated_template))

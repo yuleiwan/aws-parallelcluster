@@ -14,6 +14,7 @@
 #
 import copy
 import os
+from urllib.parse import urlparse
 
 import yaml
 from aws_cdk import aws_iam as iam
@@ -84,7 +85,9 @@ class ImageBuilderStack(core.Stack):
             id="PClusterImageInfrastructureConfiguration",
             name="-".join(["PCluster-Image-Infrastructure-Configuration", resources_prefix]),
             instance_profile_name=core.Fn.ref(instance_profile_name or "InstanceProfile"),
-            terminate_instance_on_failure=dev_settings.terminate_instance_on_failure,
+            terminate_instance_on_failure=dev_settings.terminate_instance_on_failure
+            if dev_settings and dev_settings.terminate_instance_on_failure
+            else True,
             instance_types=[build.instance_type],
         )
 
@@ -191,41 +194,57 @@ class ImageBuilderStack(core.Stack):
         """Set custom component in imagebuilder cfn template."""
         build = self.imagebuild.build
         custom_components = build.components
-        initial_component_len = len(custom_components)
+        initial_components_len = len(components)
         arn_components_len = 0
         for custom_component in custom_components:
-            if custom_component.type.startswith("arn"):
+            custom_components_len = len(components) - initial_components_len - arn_components_len
+            if custom_component.type == "arn":
                 components.append(
-                    imagebuilder.CfnImageRecipe.ComponentConfigurationProperty(component_arn=custom_component)
+                    imagebuilder.CfnImageRecipe.ComponentConfigurationProperty(component_arn=custom_component.value)
                 )
                 arn_components_len += 1
-            elif custom_component.type.startswith("yaml"):
-                imagebuilder.CfnComponent(
-                    self,
-                    id="CustomComponent" + str(len(components) - initial_component_len - arn_components_len),
-                    name="-".join(
-                        ["CustomComponent", str(len(components) - initial_component_len - arn_components_len)]
-                    ),
-                    version="0.0.1",
-                    description="CustomComponent",
-                    change_description="First version",
-                    platform="Linux",
-                    # TODO check the yaml url for https://, s3:// and file:///
-                    uri=custom_component,
+            elif custom_component.type == "yaml":
+                scheme = urlparse(custom_component.value).scheme
+                id = "CustomComponent" + str(custom_components_len)
+                if scheme in ["https", "s3"]:
+                    imagebuilder.CfnComponent(
+                        self,
+                        id=id,
+                        name="-".join(["CustomComponent", str(custom_components_len)]),
+                        version="0.0.1",
+                        description="CustomComponent",
+                        change_description="First version",
+                        platform="Linux",
+                        uri=custom_component.value,
+                    )
+                else:
+                    imagebuilder.CfnComponent(
+                        self,
+                        id=id,
+                        name="-".join(["CustomComponent", str(custom_components_len)]),
+                        version="0.0.1",
+                        description="CustomComponent",
+                        change_description="First version",
+                        platform="Linux",
+                        data=load_yaml("", custom_component.value.replace("file://", "")),
+                    )
+                components.append(
+                    imagebuilder.CfnImageRecipe.ComponentConfigurationProperty(component_arn=core.Fn.ref(id))
                 )
             else:
+                id = "CustomComponent" + str(custom_components_len)
                 imagebuilder.CfnComponent(
                     self,
-                    id="CustomComponent" + str(len(components) - initial_component_len - arn_components_len),
-                    name="-".join(
-                        ["CustomComponent", str(len(components) - initial_component_len - arn_components_len)]
-                    ),
+                    id=id,
+                    name="-".join(["CustomComponent", str(custom_components_len)]),
                     version="0.0.1",
                     description="CustomComponent",
                     change_description="First version",
                     platform="Linux",
-                    # TODO implement _wrap_bash_to_component
-                    data=self._wrap_bash_to_component(),
+                    data=imagebuilder_utils.wrap_bash_to_component(custom_component.value),
+                )
+                components.append(
+                    imagebuilder.CfnImageRecipe.ComponentConfigurationProperty(component_arn=core.Fn.ref(id))
                 )
 
     def _set_ebs_volume(self):

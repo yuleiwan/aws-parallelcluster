@@ -30,7 +30,7 @@ from botocore.exceptions import ClientError
 from tabulate import tabulate
 
 import pcluster.utils as utils
-from api.pcluster_api import ApiFailure, ClusterInfo, FullClusterInfo, PclusterApi
+from api.pcluster_api import ApiFailure, ClusterInfo, FullClusterInfo, ImageBuilderInfo, PclusterApi
 from common.utils import load_yaml_dict
 from pcluster.cli_commands.compute_fleet_status_manager import ComputeFleetStatus, ComputeFleetStatusManager
 from pcluster.constants import PCLUSTER_NAME_MAX_LENGTH, PCLUSTER_NAME_REGEX
@@ -480,7 +480,7 @@ def status(args):  # noqa: C901 FIXME!!!
         sys.exit(0)
 
 
-def delete(args):
+def delete(args):  # noqa: C901
     """Delete cluster described by cluster_name."""
     LOGGER.info("Deleting: %s", args.cluster_name)
     LOGGER.debug("CLI args: %s", str(args))
@@ -506,6 +506,14 @@ def delete(args):
                     ).ljust(80)
                     sys.stdout.write("\r%s" % resource_status)
                     sys.stdout.flush()
+                elif isinstance(result, ApiFailure):
+                    # If stack is already deleted
+                    if f"Cluster {args.cluster_name} does not exist." in result.message:
+                        LOGGER.warning(f"\nCluster {args.cluster_name} has already been deleted or does not exist.")
+                        sys.exit(0)
+                    LOGGER.critical(result.message)
+                    sys.stdout.flush()
+                    sys.exit(1)
                 else:
                     utils.error(f"Unable to retrieve the status of the cluster.\n{result.message}")
 
@@ -517,6 +525,13 @@ def delete(args):
             sys.stdout.flush()
         if result.stack_status == "DELETE_FAILED":
             LOGGER.info("Cluster did not delete successfully. Run 'pcluster delete %s' again", args.cluster_name)
+    except ClientError as e:
+        if e.response.get("Error").get("Message").endswith("does not exist"):
+            LOGGER.warning(f"\nCluster {args.cluster_name} has already been deleted or does not exist.")
+            sys.exit(0)
+        LOGGER.critical(e.response.get("Error").get("Message"))
+        sys.stdout.flush()
+        sys.exit(1)
     except KeyboardInterrupt:
         LOGGER.info("\nExiting...")
         sys.exit(0)
@@ -568,10 +583,92 @@ def build_image(args):
         response = PclusterApi().build_image(
             imagebuilder_config=load_yaml_dict(args.config_file), image_name=args.image_name, region=utils.get_region()
         )
-        LOGGER.info("Response:")
-        LOGGER.info({"image": response.__repr__()})
+
+        if isinstance(response, ApiFailure):
+            message = "Build image failed. {0}.".format(response.message if response.message else "")
+            if response.validation_failures:
+                message += "\nValidation failures:\n"
+                message += "\n".join(
+                    [f"{result.level.name}: {result.message}" for result in response.validation_failures]
+                )
+            utils.error(message)
+        else:
+            LOGGER.info("Build image started successfully.")
+            LOGGER.info("Response:")
+            LOGGER.info({"image": response.__repr__()})
     except Exception as e:
         utils.error(
             "Error parsing configuration file {0}.\nDouble check it's a valid Yaml file. "
             "Error: {1}".format(args.config_file, str(e))
         )
+
+
+def delete_image(args):  # noqa: C901
+    """Delete image described by image_name."""
+    LOGGER.info("Deleting: %s", args.image_name)
+    LOGGER.debug("CLI args: %s", str(args))
+    try:
+        # delete image raises an exception if stack does not exist
+        result = PclusterApi().delete_image(image_name=args.image_name, region=utils.get_region())
+        if isinstance(result, ImageBuilderInfo):
+            print(f"Image deletion started correctly. {result}")
+        else:
+            utils.error(f"Image deletion failed. {result.message}")
+
+        sys.stdout.write("\rStatus: %s" % result.stack_status)
+        sys.stdout.flush()
+        LOGGER.debug("Status: %s", result.stack_status)
+
+        if not args.nowait:
+            while result.stack_status == "DELETE_IN_PROGRESS":
+                time.sleep(1)
+                result = PclusterApi().describe_image(image_name=args.image_name, region=utils.get_region())
+                if isinstance(result, ImageBuilderInfo):
+                    events = utils.get_stack_events(result.stack_name, raise_on_error=True)[0]
+                    resource_status = (
+                        "Status: %s - %s" % (events.get("LogicalResourceId"), events.get("ResourceStatus"))
+                    ).ljust(80)
+                    sys.stdout.write("\r%s" % resource_status)
+                    sys.stdout.flush()
+                elif isinstance(result, ApiFailure):
+                    # If stack is already deleted
+                    if f"ImageBuilder stack {args.image_name} does not exist." in result.message:
+                        LOGGER.warning(f"\nImage {args.image_name} has already been deleted or does not exist.")
+                        sys.exit(0)
+                    LOGGER.critical(result.message)
+                    sys.stdout.flush()
+                    sys.exit(1)
+                else:
+                    utils.error(f"Unable to retrieve the status of the image.\n{result.message}")
+            sys.stdout.write("\rStatus: %s\n" % result.stack_status)
+            sys.stdout.flush()
+            LOGGER.debug("Status: %s", result.stack_status)
+        else:
+            sys.stdout.write("\n")
+            sys.stdout.flush()
+        if result.stack_status == "DELETE_FAILED":
+            LOGGER.info("Image did not delete successfully. Run 'pcluster delete-image %s' again", args.image_name)
+    except ClientError as e:
+        if e.response.get("Error").get("Message").endswith("does not exist"):
+            LOGGER.warning(f"\nImage {args.image_name} has already been deleted or does not exist.")
+            sys.exit(0)
+        LOGGER.critical(e.response.get("Error").get("Message"))
+        sys.stdout.flush()
+        sys.exit(1)
+    except KeyboardInterrupt:
+        LOGGER.info("\nExiting...")
+        sys.exit(0)
+
+
+def describe_image(args):
+    """Describe image info by image_name."""
+    try:
+        result = PclusterApi().describe_image(image_name=args.image_name, region=utils.get_region())
+        LOGGER.info("Response:")
+        if isinstance(result, ApiFailure):
+            LOGGER.info(f"Build image error {result.message}")
+        else:
+            LOGGER.info({"image": result.__repr__()})
+    except KeyboardInterrupt:
+        LOGGER.info("Exiting...")
+        sys.exit(0)

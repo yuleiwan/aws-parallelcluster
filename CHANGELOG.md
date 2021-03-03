@@ -13,7 +13,9 @@ CHANGELOG
 - Rename `createami` command to `build-image` command, deprecate `--ami-id`, `--os`, `--instance-type`, 
   `--ami-name-prefix`, `--custom-cookbook`, `--post-install`, `--no-public-ip`, `--cluster-template`, `--vpc-id`,
    `--subnet-id`.
-- Add `--image-name`, `--config`, `--region` to `build-image` command
+- Add `--image-name`, `--config`, `--region` to `build-image` command.
+- Add delete-image command with --image-name, --region, --nowait parameters.
+- Add describe-image command with --image-name, --region parameters.
 
 2.10.1
 ------

@@ -141,3 +141,8 @@ class Ec2Client(Boto3Client):
             for result in self._paginate_results(self._client.describe_instances, Filters=filters)
             for instance in result.get("Instances")
         ]
+
+    @AWSExceptionHandler.handle_client_exception
+    def deregister_image(self, image_id):
+        """Deregister ami."""
+        self._client.deregister_image(ImageId=image_id)

@@ -18,7 +18,7 @@ import logging
 import re
 
 from common.aws.aws_api import AWSApi
-from common.aws.aws_resources import StackInfo
+from common.aws.aws_resources import ImageInfo, StackInfo
 from common.boto3.common import AWSClientError
 from common.imagebuilder_utils import AMI_NAME_REQUIRED_SUBSTRING
 from pcluster.models.common import BaseTag
@@ -81,6 +81,17 @@ class ImageBuilderStack(StackInfo):
         return self._get_tag("pcluster_version")
 
     @property
+    def image(self):
+        """Return created image by imagebuilder stack."""
+        try:
+            image_id = self.image_id
+            if image_id:
+                return ImageInfo(AWSApi.instance().ec2.describe_image(image_id))
+            return None
+        except AWSClientError:
+            return None
+
+    @property
     def image_id(self):
         """Return output image id."""
         if self._image_resource:
@@ -98,6 +109,15 @@ class ImageBuilderStack(StackInfo):
             return AWSApi.instance().cfn.get_template(self.name).get("Metadata").get("Config")
         except (AWSClientError, KeyError):
             return None
+
+    def update_stack_info(self):
+        """Update stack data."""
+        self._stack_data = AWSApi().instance().cfn.describe_stack(self.name)
+        try:
+            self._image_resource = AWSApi.instance().cfn.describe_stack_resource(self.name, "ParallelClusterImage")
+        except AWSClientError:
+            self._image_resource = None
+        return self._stack_data
 
 
 class ImageBuilder:
@@ -179,13 +199,28 @@ class ImageBuilder:
                 tags=tags,
             )
 
-            self.__stack = ImageBuilderStack(AWSApi().instance().cfn.describe_stack(self.image_name))
+            self.__stack = ImageBuilderStack(AWSApi.instance().cfn.describe_stack(self.image_name))
+
             LOGGER.debug("StackId: %s", self.stack.id)
             LOGGER.info("Status: %s", self.stack.status)
 
         except Exception as e:
             LOGGER.critical(e)
             raise ImageBuilderActionError(f"ImageBuilder stack creation failed.\n{e}")
+
+    def delete(self):
+        """Delete CFN Stack and associate resources and deregister the image."""
+        # validate image name
+        self._validate_image_name()
+
+        # deregister image
+        if self.stack.image_id:
+            AWSApi.instance().ec2.deregister_image(self.stack.image_id)
+
+        # delete stack
+        AWSApi.instance().cfn.delete_stack(self.image_name)
+
+        self.stack.update_stack_info()
 
     def _validate_image_name(self):
         match = re.match(r"^[-_A-Za-z-0-9][-_A-Za-z0-9 ]{1,126}[-_A-Za-z-0-9]$", self.image_name)

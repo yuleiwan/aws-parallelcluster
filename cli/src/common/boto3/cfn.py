@@ -89,4 +89,4 @@ class CfnClient(Boto3Client):
     @AWSExceptionHandler.handle_client_exception
     def describe_stack_resource(self, stack_name: str, logic_resource_id: str):
         """Get stack resource information."""
-        self._client.describe_stack_resource(StackName=stack_name, LogicalResourceId=logic_resource_id)
+        return self._client.describe_stack_resource(StackName=stack_name, LogicalResourceId=logic_resource_id)

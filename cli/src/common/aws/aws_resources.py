@@ -81,3 +81,45 @@ class InstanceInfo:
     def private_ip(self) -> str:
         """Return Private Ip of the instance."""
         return self._instance_data.get("PrivateIpAddress")
+
+
+class ImageInfo:
+    """Object to store Image information, initialized with the image property in imagebuilder stack."""
+
+    def __init__(self, image_data: dict):
+        self._image_data = image_data
+
+    @property
+    def name(self) -> str:
+        """Return image name."""
+        return self._image_data.get("Name")
+
+    @property
+    def id(self) -> str:
+        """Return image id."""
+        return self._image_data.get("ImageId")
+
+    @property
+    def description(self) -> str:
+        """Return image description."""
+        return self._image_data.get("Description")
+
+    @property
+    def state(self) -> str:
+        """Return image state."""
+        return self._image_data.get("State")
+
+    @property
+    def architecture(self) -> str:
+        """Return image supports architecture."""
+        return self._image_data.get("Architecture")
+
+    @property
+    def tags(self) -> list:
+        """Return image tags."""
+        return self._image_data.get("Tags")
+
+    @property
+    def block_device_mappings(self) -> list:
+        """Return device block mappings."""
+        return self._image_data.get("BlockDeviceMappings")

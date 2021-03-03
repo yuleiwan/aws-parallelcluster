@@ -70,16 +70,27 @@ class FullClusterInfo(ClusterInfo):
         self.scheduler = cluster.config.scheduling.scheduler
 
 
-class ImageInfo:
+class ImageBuilderInfo:
     """Minimal representation of a building image."""
 
     def __init__(self, imagebuilder: ImageBuilder):
-        self.image_name = imagebuilder.stack.name
-        self.imagebuild_status = imagebuilder.imagebuild_status
+        # imagebuilder stack info
+        self.stack_name = imagebuilder.stack.name
         self.stack_status = imagebuilder.stack.status
         self.stack_arn = imagebuilder.stack.id
         self.region = get_region()
         self.version = imagebuilder.stack.version
+
+        # build image process status
+        self.imagebuild_status = imagebuilder.imagebuild_status
+
+        # image info
+        if imagebuilder.stack.image:
+            self.image_name = imagebuilder.stack.image.name
+            self.image_id = imagebuilder.stack.image.id
+            self.image_state = imagebuilder.stack.image.state
+            self.image_architecture = imagebuilder.stack.image.architecture
+            self.image_tags = imagebuilder.stack.image.tags
 
     def __repr__(self):
         return json.dumps(self.__dict__)
@@ -221,8 +232,43 @@ class PclusterApi:
                 os.environ["AWS_DEFAULT_REGION"] = region
             imagebuilder = ImageBuilder(image_name, imagebuilder_config)
             imagebuilder.create(disable_rollback)
-            return ImageInfo(imagebuilder)
+            return ImageBuilderInfo(imagebuilder)
         except ImageBuilderActionError as e:
             return ApiFailure(str(e), e.validation_failures)
+        except Exception as e:
+            return ApiFailure(str(e))
+
+    @staticmethod
+    def delete_image(image_name: str, region: str):
+        """
+        Delete image and imagebuilder stack.
+
+        :param image_name: the image name(the same as cfn stack name)
+        :param region: AWS region
+        """
+        try:
+            if region:
+                os.environ["AWS_DEFAULT_REGION"] = region
+            # retrieve imagebuilder config and generate model
+            imagebuilder = ImageBuilder(image_name)
+            imagebuilder.delete()
+            return ImageBuilderInfo(imagebuilder)
+        except Exception as e:
+            return ApiFailure(str(e))
+
+    @staticmethod
+    def describe_image(image_name: str, region: str):
+        """
+        Get image information.
+
+        :param image_name: the image name(the same as cfn stack name)
+        :param region: AWS region
+        """
+        try:
+            if region:
+                os.environ["AWS_DEFAULT_REGION"] = region
+
+            imagebuilder = ImageBuilder(image_name)
+            return ImageBuilderInfo(imagebuilder)
         except Exception as e:
             return ApiFailure(str(e))

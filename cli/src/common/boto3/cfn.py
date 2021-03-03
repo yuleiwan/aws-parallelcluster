@@ -89,4 +89,14 @@ class CfnClient(Boto3Client):
     @AWSExceptionHandler.handle_client_exception
     def describe_stack_resource(self, stack_name: str, logic_resource_id: str):
         """Get stack resource information."""
-        self._client.describe_stack_resource(StackName=stack_name, LogicalResourceId=logic_resource_id)
+        return self._client.describe_stack_resource(StackName=stack_name, LogicalResourceId=logic_resource_id)
+
+    @AWSExceptionHandler.handle_client_exception
+    def list_imagebuilder_stacks(self):
+        """List existing imagebuilder stacks."""
+        stack_list = []
+        for stack in self._paginate_results(self._client.describe_stacks):
+            tag = next(iter([tag["Value"] for tag in stack.get("Tags") if tag["Key"] == "pcluster_build_image"]), None)
+            if stack.get("ParentId") is None and tag:
+                stack_list.append(stack)
+        return stack_list

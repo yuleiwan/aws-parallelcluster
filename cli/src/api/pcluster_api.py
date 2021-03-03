@@ -15,9 +15,11 @@ import os
 from packaging import version
 
 from common.aws.aws_api import AWSApi
+from common.aws.aws_resources import ImageInfo
+from pcluster import utils
 from pcluster.cli_commands.compute_fleet_status_manager import ComputeFleetStatus
 from pcluster.models.cluster import Cluster, ClusterActionError, ClusterStack
-from pcluster.models.imagebuilder import ImageBuilder, ImageBuilderActionError
+from pcluster.models.imagebuilder import ImageBuilder, ImageBuilderActionError, ImageBuilderStack
 from pcluster.utils import get_installed_version, get_region
 
 LOGGER = logging.getLogger(__name__)
@@ -70,16 +72,35 @@ class FullClusterInfo(ClusterInfo):
         self.scheduler = cluster.config.scheduling.scheduler
 
 
-class ImageInfo:
+class ImageBuilderInfo:
     """Minimal representation of a building image."""
 
     def __init__(self, imagebuilder: ImageBuilder):
-        self.image_name = imagebuilder.stack.name
+        # imagebuilder stack info
+        self.stack_name = imagebuilder.stack.name
         self.imagebuild_status = imagebuilder.imagebuild_status
         self.stack_status = imagebuilder.stack.status
         self.stack_arn = imagebuilder.stack.id
         self.region = get_region()
         self.version = imagebuilder.stack.version
+
+        # build image process status
+        self.imagebuild_status = imagebuilder.imagebuild_status
+
+    def __repr__(self):
+        return json.dumps(self.__dict__)
+
+
+class PclusterImageInfo:
+    """Minimal representation of a built image."""
+
+    def __init__(self, image: ImageInfo):
+        self.image_name = image.name
+        self.image_id = image.id
+        self.image_state = image.state
+        self.image_architecture = image.architecture
+        self.image_tags = image.tags
+        self.image_version = image.version
 
     def __repr__(self):
         return json.dumps(self.__dict__)
@@ -214,6 +235,7 @@ class PclusterApi:
         :param image_name: the image name(the same as cfn stack name)
         :param region: AWS region
         :param disable_rollback: Disable rollback in case of failures
+        :return ImageBuilderInfo
         """
         try:
             # Generate model from imagebuilder config dict
@@ -221,8 +243,46 @@ class PclusterApi:
                 os.environ["AWS_DEFAULT_REGION"] = region
             imagebuilder = ImageBuilder(image_name, imagebuilder_config)
             imagebuilder.create(disable_rollback)
-            return ImageInfo(imagebuilder)
+            return ImageBuilderInfo(imagebuilder)
         except ImageBuilderActionError as e:
             return ApiFailure(str(e), e.validation_failures)
+        except Exception as e:
+            return ApiFailure(str(e))
+
+    @staticmethod
+    def describe_images(region: str):
+        """
+        List existing images.
+
+        :param region: AWS region
+        :return list
+        """
+        try:
+            if region:
+                os.environ["AWS_DEFAULT_REGION"] = region
+
+            # get built images by pcluster_version tag
+            built_images = AWSApi.instance().ec2.describe_images(
+                filters=[{"Name": "tag:pcluster_version", "Values": [utils.get_installed_version()]}], owners=["self"]
+            )
+            built_image_stack_names = []
+            for built_image in built_images:
+                for tag in built_image.tags:
+                    if tag.get("Key") == "imagebuilder_stack_name":
+                        built_image_stack_names.append(tag.get("Value"))
+            built_images_response = [PclusterImageInfo(built_image) for built_image in built_images]
+
+            # get building image stacks by pcluster_build_image tag, exclude build complete stacks
+            imagebuilder_stacks = AWSApi.instance().cfn.list_imagebuilder_stacks()
+            building_stacks = [
+                building_stack
+                for building_stack in imagebuilder_stacks
+                if building_stack.get("StackName") not in built_image_stack_names
+                and building_stack.get("StackStatus") != "CREATE_COMPLETE"
+            ]
+            building_stacks_response = [
+                ImageBuilderInfo(ImageBuilder(stack=ImageBuilderStack(stack))) for stack in building_stacks
+            ]
+            return built_images_response + building_stacks_response
         except Exception as e:
             return ApiFailure(str(e))

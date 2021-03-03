@@ -14,6 +14,8 @@ CHANGELOG
   `--ami-name-prefix`, `--custom-cookbook`, `--post-install`, `--no-public-ip`, `--cluster-template`, `--vpc-id`,
    `--subnet-id`.
 - Add `--image-name`, `--config`, `--region` to `build-image` command
+- Add new command `list-images`
+- Add `--region`, `--color` to `list-images` command
 
 2.10.1
 ------

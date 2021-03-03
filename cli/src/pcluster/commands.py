@@ -30,7 +30,7 @@ from botocore.exceptions import ClientError
 from tabulate import tabulate
 
 import pcluster.utils as utils
-from api.pcluster_api import ApiFailure, ClusterInfo, FullClusterInfo, PclusterApi
+from api.pcluster_api import ApiFailure, ClusterInfo, FullClusterInfo, ImageBuilderInfo, PclusterApi
 from common.utils import load_yaml_dict
 from pcluster.cli_commands.compute_fleet_status_manager import ComputeFleetStatus, ComputeFleetStatusManager
 from pcluster.constants import PCLUSTER_NAME_MAX_LENGTH, PCLUSTER_NAME_REGEX
@@ -575,3 +575,22 @@ def build_image(args):
             "Error parsing configuration file {0}.\nDouble check it's a valid Yaml file. "
             "Error: {1}".format(args.config_file, str(e))
         )
+
+
+def list_images(args):
+    """List existing AWS ParallelCluster AMIs."""
+    try:
+        result = PclusterApi().describe_images(region=utils.get_region())
+        if isinstance(result, list):
+            images = []
+            for info in result:
+                if isinstance(info, ImageBuilderInfo):
+                    images.append([info.stack_name, _colorize(info.imagebuild_status, args), info.version])
+                else:
+                    images.append([info.image_name, _colorize("BUILD_COMPLETE", args), info.image_version])
+            LOGGER.info(tabulate(images, tablefmt="plain"))
+        else:
+            utils.error(f"Unable to retrieve the list of images.\n{result.message}")
+    except KeyboardInterrupt:
+        LOGGER.info("Exiting...")
+        sys.exit(0)

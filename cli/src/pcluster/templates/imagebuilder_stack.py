@@ -101,6 +101,7 @@ class ImageBuilderCdkStack(core.Stack):
 
         # Add default ami tags information
         tags = copy.deepcopy(image.tags) if image and image.tags else []
+        tags.append(BaseTag(key="imagebuilder_stack_name", value=image_name))
         tags.append(BaseTag(key="pcluster_version", value=utils.get_installed_version()))
         ami_tags = {tag.key: tag.value for tag in tags}
 

@@ -295,7 +295,7 @@ Returns an ssh command with the cluster username and IP address pre-populated::
     pssh.add_argument("-d", "--dryrun", action="store_true", default=False, help="Prints command and exits.")
     pssh.set_defaults(func=ssh)
 
-    # createami command subparser
+    # build image command subparser
     pami = subparsers.add_parser("build-image", help="Creates a custom AMI to use with AWS ParallelCluster.")
     pami.add_argument(
         "-i",
@@ -306,6 +306,8 @@ Returns an ssh command with the cluster username and IP address pre-populated::
     )
     _addarg_config(pami)
     _addarg_region(pami)
+    pami.add_argument("-rb", "--rollback", action="store_true", default=False, help="Enables stack rollback on error.")
+
     pami.set_defaults(func=build_image)
 
     # configure command subparser

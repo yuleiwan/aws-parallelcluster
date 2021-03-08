@@ -566,7 +566,10 @@ def build_image(args):
     LOGGER.info("Building AWS ParallelCluster AMI. This could take a while...")
     try:
         response = PclusterApi().build_image(
-            imagebuilder_config=load_yaml_dict(args.config_file), image_name=args.image_name, region=utils.get_region()
+            imagebuilder_config=load_yaml_dict(args.config_file),
+            image_name=args.image_name,
+            region=utils.get_region(),
+            disable_rollback=not args.rollback,
         )
         if isinstance(response, ApiFailure):
             message = "Build image failed. {0}.".format(response.message if response.message else "")

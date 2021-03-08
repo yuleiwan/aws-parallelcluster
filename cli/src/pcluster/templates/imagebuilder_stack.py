@@ -18,6 +18,7 @@ import os
 import yaml
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_imagebuilder as imagebuilder
+from aws_cdk import aws_sns as sns
 from aws_cdk import core
 
 import pcluster.utils as utils
@@ -103,6 +104,9 @@ class ImageBuilderCdkStack(core.Stack):
         tags.append(BaseTag(key="pcluster_version", value=utils.get_installed_version()))
         ami_tags = {tag.key: tag.value for tag in tags}
 
+        # AWS sns
+        sns.CfnTopic(self, id="ParallelClusterSNSTopic", display_name="ImageBuilderSNSTopic")
+
         # InfrastructureConfiguration
         imagebuilder.CfnInfrastructureConfiguration(
             self,
@@ -116,6 +120,7 @@ class ImageBuilderCdkStack(core.Stack):
             instance_types=[build.instance_type],
             security_group_ids=build.security_group_ids,
             subnet_id=build.subnet_id,
+            sns_topic_arn=core.Fn.ref("ParallelClusterSNSTopic"),
         )
 
         imagebuilder_resources_dir = os.path.join(imagebuilder_utils.get_resources_directory(), "imagebuilder")

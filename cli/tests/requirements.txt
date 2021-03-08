@@ -17,3 +17,4 @@ aws-cdk.aws-fsx
 aws-cdk.aws-efs
 aws-cdk.aws-sqs
 aws_cdk.aws_lambda
+aws-cdk.aws-sns

@@ -48,106 +48,21 @@ from ..models.imagebuilder_dummy_model import imagebuilder_factory
                 ],
             },
             {
-                "Metadata": {
-                    "Config": "Build:\n  InstanceType: c5.xlarge\n  "
-                    "ParentImage: arn:aws:imagebuilder:us-east-1:aws:image/amazon-linux-2-x86/x.x.x\n\
-                    DevSettings:\n  UpdateOsAndReboot: true\nImage:\n  Name: Pcluster\n"
-                },
+                "Metadata": {},
                 "Parameters": {
-                    "CfnParamChefDnaJson": {
-                        "Type": "String",
-                        "Default": '{"cfncluster": {"cfn_region": '
-                        '"{{ build.AWSRegion.outputs.stdout }}","nvidia": {"enabled": "false"}, '
-                        '"is_official_ami_build": "true", "custom_node_package":"", "cfn_base_os": '
-                        '"{{ build.OperatingSystemName.outputs.stdout }}"}}',
-                        "Description": "ChefAttributes",
-                    },
-                    "CfnParamChefCookbook": {"Type": "String", "Default": "", "Description": "ChefCookbook"},
-                    "CfnParamCincInstaller": {"Type": "String", "Default": "", "Description": "CincInstaller"},
-                    "CfnParamCookbookVersion": {
-                        "Type": "String",
-                        "Default": "3.0",
-                        "Description": "CookbookVersion",
-                    },
+                    "CfnParamChefDnaJson": {},
+                    "CfnParamChefCookbook": {},
+                    "CfnParamCincInstaller": {},
+                    "CfnParamCookbookVersion": {},
                 },
                 "Resources": {
-                    "InstanceRole": {
-                        "Type": "AWS::IAM::Role",
-                        "Properties": {
-                            "AssumeRolePolicyDocument": {
-                                "Statement": {
-                                    "Action": "sts:AssumeRole",
-                                    "Effect": "Allow",
-                                    "Principal": {"Service": "ec2.amazonaws.com"},
-                                },
-                                "Version": "2012-10-17",
-                            },
-                            "ManagedPolicyArns": [
-                                {"Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"},
-                                {"Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/EC2InstanceProfileForImageBuilder"},
-                            ],
-                            "Path": "/executionServiceEC2Role/",
-                        },
-                        "Metadata": {"Comment": "Role to be used by instance during image build."},
-                    },
-                    "InstanceProfile": {
-                        "Type": "AWS::IAM::InstanceProfile",
-                        "Properties": {"Roles": [{"Ref": "InstanceRole"}], "Path": "/executionServiceEC2Role/"},
-                    },
-                    "ParallelClusterInfrastructureConfiguration": {
-                        "Type": "AWS::ImageBuilder::InfrastructureConfiguration",
-                        "Properties": {
-                            "InstanceProfileName": {"Ref": "InstanceProfile"},
-                            "Name": "ParallelClusterInfrastructureConfiguration-qd6lpbzo8gd2j4dr",
-                            "InstanceTypes": ["c5.xlarge"],
-                            "TerminateInstanceOnFailure": False,
-                        },
-                    },
-                    "UpdateAndRebootComponent": {
-                        "Type": "AWS::ImageBuilder::Component",
-                        "Properties": {
-                            "Name": "UpdateAndRebootComponent-qd6lpbzo8gd2j4dr",
-                            "Platform": "Linux",
-                            "Version": "3.0",
-                            "Data": {"Fn::Sub": "content"},
-                            "Description": "Update OS and Reboot",
-                        },
-                    },
-                    "ParallelClusterComponent": {
-                        "Type": "AWS::ImageBuilder::Component",
-                        "Properties": {
-                            "Name": "ParallelClusterComponent-qd6lpbzo8gd2j4dr",
-                            "Platform": "Linux",
-                            "Version": "3.0",
-                            "Data": {"Fn::Sub": "content"},
-                            "Description": "Bake ParallelCluster AMI",
-                        },
-                    },
-                    "ParallelClusterImageRecipe": {
-                        "Type": "AWS::ImageBuilder::ImageRecipe",
-                        "Properties": {
-                            "Components": [
-                                {"ComponentArn": {"Ref": "UpdateAndRebootComponent"}},
-                                {"ComponentArn": {"Ref": "ParallelClusterComponent"}},
-                            ],
-                            "Name": "ParallelClusterImageRecipe-qd6lpbzo8gd2j4dr",
-                            "ParentImage": {
-                                "Fn::Sub": "arn:aws:imagebuilder:us-east-1:aws:image/amazon-linux-2-x86/x.x.x"
-                            },
-                            "Version": "3.0",
-                            "BlockDeviceMappings": [
-                                {"DeviceName": "/dev/xvda", "Ebs": {"VolumeSize": 40, "VolumeType": "gp2"}}
-                            ],
-                        },
-                    },
-                    "ParallelClusterImage": {
-                        "Type": "AWS::ImageBuilder::Image",
-                        "Properties": {
-                            "ImageRecipeArn": {"Ref": "ParallelClusterImageRecipe"},
-                            "InfrastructureConfigurationArn": {"Ref": "ParallelClusterInfrastructureConfiguration"},
-                            "DistributionConfigurationArn": {"Ref": "ParallelClusterDistributionConfiguration"},
-                        },
-                    },
+                    "InstanceRole": {},
+                    "InstanceProfile": {},
+                    "ParallelClusterInfrastructureConfiguration": {},
+                    "UpdateAndRebootComponent": {},
+                    "ParallelClusterComponent": {},
+                    "ParallelClusterImageRecipe": {},
+                    "ParallelClusterImage": {},
                 },
             },
         ),
@@ -176,90 +91,20 @@ from ..models.imagebuilder_dummy_model import imagebuilder_factory
                 ],
             },
             {
-                "Metadata": {
-                    "Config": "Build:\n  InstanceType: g4dn.xlarge\n  ParentImage: ami-0185634c5a8a37250\n\
-    DevSettings: {}\nImage:\n  Name: Pcluster\n"
-                },
+                "Metadata": {},
                 "Parameters": {
-                    "CfnParamChefDnaJson": {
-                        "Type": "String",
-                        "Default": '{"cfncluster": {"cfn_region": "{{ build.AWSRegion.outputs.stdout }}",'
-                        '"nvidia": {"enabled": "false"}, "is_official_ami_build": "true", '
-                        '"custom_node_package":"", "cfn_base_os": "{{ build.OperatingSystemName.outputs.stdout }}"}}',
-                        "Description": "ChefAttributes",
-                    },
-                    "CfnParamChefCookbook": {"Type": "String", "Default": "", "Description": "ChefCookbook"},
-                    "CfnParamCincInstaller": {"Type": "String", "Default": "", "Description": "CincInstaller"},
-                    "CfnParamCookbookVersion": {
-                        "Type": "String",
-                        "Default": "2.10.1",
-                        "Description": "CookbookVersion",
-                    },
+                    "CfnParamChefDnaJson": {},
+                    "CfnParamChefCookbook": {},
+                    "CfnParamCincInstaller": {},
+                    "CfnParamCookbookVersion": {},
                 },
                 "Resources": {
-                    "InstanceRole": {
-                        "Type": "AWS::IAM::Role",
-                        "Properties": {
-                            "AssumeRolePolicyDocument": {
-                                "Statement": {
-                                    "Action": "sts:AssumeRole",
-                                    "Effect": "Allow",
-                                    "Principal": {"Service": "ec2.amazonaws.com"},
-                                },
-                                "Version": "2012-10-17",
-                            },
-                            "ManagedPolicyArns": [
-                                {"Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"},
-                                {"Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/EC2InstanceProfileForImageBuilder"},
-                            ],
-                            "Path": "/executionServiceEC2Role/",
-                        },
-                        "Metadata": {"Comment": "Role to be used by instance during image build."},
-                    },
-                    "InstanceProfile": {
-                        "Type": "AWS::IAM::InstanceProfile",
-                        "Properties": {"Roles": [{"Ref": "InstanceRole"}], "Path": "/executionServiceEC2Role/"},
-                    },
-                    "ParallelClusterInfrastructureConfiguration": {
-                        "Type": "AWS::ImageBuilder::InfrastructureConfiguration",
-                        "Properties": {
-                            "InstanceProfileName": {"Ref": "InstanceProfile"},
-                            "Name": "ParallelClusterInfrastructureConfiguration-gw85hm3tw3qka4fd",
-                            "InstanceTypes": ["g4dn.xlarge"],
-                            "TerminateInstanceOnFailure": True,
-                        },
-                    },
-                    "ParallelClusterComponent": {
-                        "Type": "AWS::ImageBuilder::Component",
-                        "Properties": {
-                            "Name": "ParallelClusterComponent-gw85hm3tw3qka4fd",
-                            "Platform": "Linux",
-                            "Version": "0.0.1",
-                            "ChangeDescription": "First version",
-                            "Data": {"Fn::Sub": "install pcluster"},
-                            "Description": "Bake ParallelCluster AMI",
-                        },
-                    },
-                    "ParallelClusterImageRecipe": {
-                        "Type": "AWS::ImageBuilder::ImageRecipe",
-                        "Properties": {
-                            "Components": [{"ComponentArn": {"Ref": "ParallelClusterComponent"}}],
-                            "Name": "ParallelClusterImageRecipe-gw85hm3tw3qka4fd",
-                            "ParentImage": {"Fn::Sub": "ami-0185634c5a8a37250"},
-                            "Version": "3.0",
-                            "BlockDeviceMappings": [
-                                {"DeviceName": "/dev/xvda", "Ebs": {"VolumeSize": 65, "VolumeType": "gp2"}}
-                            ],
-                        },
-                    },
-                    "ParallelClusterImage": {
-                        "Type": "AWS::ImageBuilder::Image",
-                        "Properties": {
-                            "ImageRecipeArn": {"Ref": "ParallelClusterImageRecipe"},
-                            "InfrastructureConfigurationArn": {"Ref": "ParallelClusterInfrastructureConfiguration"},
-                            "DistributionConfigurationArn": {"Ref": "ParallelClusterDistributionConfiguration"},
-                        },
-                    },
+                    "InstanceRole": {},
+                    "InstanceProfile": {},
+                    "ParallelClusterInfrastructureConfiguration": {},
+                    "ParallelClusterComponent": {},
+                    "ParallelClusterImageRecipe": {},
+                    "ParallelClusterImage": {},
                 },
             },
         ),
@@ -639,6 +484,7 @@ def test_imagebuilder_components(mocker, resource, response, expected_components
                             "keyTag1": "valueTag1",
                             "keyTag2": "valueTag2",
                             "pcluster_version": utils.get_installed_version(),
+                            "imagebuilder_stack_name": "Pcluster",
                         },
                     },
                     "Region": {"Fn::Sub": "${AWS::Region}"},
@@ -669,7 +515,10 @@ def test_imagebuilder_components(mocker, resource, response, expected_components
                 {
                     "AmiDistributionConfiguration": {
                         "Name": "Pcluster {{ imagebuilder:buildDate }}",
-                        "AmiTags": {"pcluster_version": utils.get_installed_version()},
+                        "AmiTags": {
+                            "pcluster_version": utils.get_installed_version(),
+                            "imagebuilder_stack_name": "Pcluster",
+                        },
                     },
                     "Region": {"Fn::Sub": "${AWS::Region}"},
                 },
@@ -702,7 +551,10 @@ def test_imagebuilder_components(mocker, resource, response, expected_components
                 {
                     "AmiDistributionConfiguration": {
                         "Name": "Pcluster {{ imagebuilder:buildDate }}",
-                        "AmiTags": {"pcluster_version": utils.get_installed_version()},
+                        "AmiTags": {
+                            "pcluster_version": utils.get_installed_version(),
+                            "imagebuilder_stack_name": "Pcluster",
+                        },
                     },
                     "Region": {"Fn::Sub": "${AWS::Region}"},
                 },
@@ -841,7 +693,8 @@ def test_imagebuilder_build_tags(mocker, resource, response, expected_imagebuild
         elif resource_name == "InstanceRole":
             assert_that(resource.get("Properties").get("Tags")).is_equal_to(expected_role_tags)
         else:
-            assert_that(resource.get("Properties").get("Tags")).is_equal_to(expected_imagebuilder_resource_tags)
+            if resource_name != "ParallelClusterSNSTopic":
+                assert_that(resource.get("Properties").get("Tags")).is_equal_to(expected_imagebuilder_resource_tags)
 
 
 @pytest.mark.parametrize(
@@ -1008,7 +861,7 @@ def test_imagebuilder_security_group_ids(mocker, resource, response, expected_im
                 {
                     "AmiDistributionConfiguration": {
                         "Name": "Pcluster {{ imagebuilder:buildDate }}",
-                        "AmiTags": {"pcluster_version": "2.10.1"},
+                        "AmiTags": {"pcluster_version": "2.10.1", "imagebuilder_stack_name": "Pcluster"},
                     },
                     "Region": {"Fn::Sub": "${AWS::Region}"},
                 },
@@ -1043,7 +896,7 @@ def test_imagebuilder_security_group_ids(mocker, resource, response, expected_im
                 {
                     "AmiDistributionConfiguration": {
                         "Name": "Pcluster {{ imagebuilder:buildDate }}",
-                        "AmiTags": {"pcluster_version": "2.10.1"},
+                        "AmiTags": {"pcluster_version": "2.10.1", "imagebuilder_stack_name": "Pcluster"},
                     },
                     "Region": {"Fn::Sub": "${AWS::Region}"},
                 },
@@ -1078,7 +931,7 @@ def test_imagebuilder_security_group_ids(mocker, resource, response, expected_im
                 {
                     "AmiDistributionConfiguration": {
                         "Name": "Pcluster {{ imagebuilder:buildDate }}",
-                        "AmiTags": {"pcluster_version": "2.10.1"},
+                        "AmiTags": {"pcluster_version": "2.10.1", "imagebuilder_stack_name": "Pcluster"},
                     },
                     "Region": "eu-south-1",
                 },
@@ -1113,7 +966,7 @@ def test_imagebuilder_security_group_ids(mocker, resource, response, expected_im
                 {
                     "AmiDistributionConfiguration": {
                         "Name": "Pcluster {{ imagebuilder:buildDate }}",
-                        "AmiTags": {"pcluster_version": "2.10.1"},
+                        "AmiTags": {"pcluster_version": "2.10.1", "imagebuilder_stack_name": "Pcluster"},
                         "LaunchPermissionConfiguration": "",
                     },
                     "Region": "eu-south-1",
@@ -1154,7 +1007,7 @@ def test_imagebuilder_security_group_ids(mocker, resource, response, expected_im
                 {
                     "AmiDistributionConfiguration": {
                         "Name": "Pcluster {{ imagebuilder:buildDate }}",
-                        "AmiTags": {"pcluster_version": "2.10.1"},
+                        "AmiTags": {"pcluster_version": "2.10.1", "imagebuilder_stack_name": "Pcluster"},
                         "LaunchPermissionConfiguration": {"UserIds": ["123456789012", "345678901234"]},
                     },
                     "Region": "eu-south-1",
@@ -1195,7 +1048,7 @@ def test_imagebuilder_security_group_ids(mocker, resource, response, expected_im
                 {
                     "AmiDistributionConfiguration": {
                         "Name": "Pcluster {{ imagebuilder:buildDate }}",
-                        "AmiTags": {"pcluster_version": "2.10.1"},
+                        "AmiTags": {"pcluster_version": "2.10.1", "imagebuilder_stack_name": "Pcluster"},
                         "LaunchPermissionConfiguration": {"UserIds": []},
                     },
                     "Region": "eu-south-1",
@@ -1236,7 +1089,7 @@ def test_imagebuilder_security_group_ids(mocker, resource, response, expected_im
                 {
                     "AmiDistributionConfiguration": {
                         "Name": "Pcluster {{ imagebuilder:buildDate }}",
-                        "AmiTags": {"pcluster_version": "2.10.1"},
+                        "AmiTags": {"pcluster_version": "2.10.1", "imagebuilder_stack_name": "Pcluster"},
                         "LaunchPermissionConfiguration": {"UserGroups": ["all"]},
                     },
                     "Region": "eu-south-1",
@@ -1244,7 +1097,7 @@ def test_imagebuilder_security_group_ids(mocker, resource, response, expected_im
                 {
                     "AmiDistributionConfiguration": {
                         "Name": "Pcluster {{ imagebuilder:buildDate }}",
-                        "AmiTags": {"pcluster_version": "2.10.1"},
+                        "AmiTags": {"pcluster_version": "2.10.1", "imagebuilder_stack_name": "Pcluster"},
                         "LaunchPermissionConfiguration": {"UserGroups": ["all"]},
                     },
                     "Region": "us-west-1",
